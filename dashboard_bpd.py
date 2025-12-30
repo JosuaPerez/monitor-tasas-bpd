@@ -96,7 +96,6 @@ API_URL = "https://api.us-east-a.apiconnect.ibmappdomain.cloud/apiportalpopular/
 
 # --- 4. FUNCIONES AUXILIARES ---
 
-
 def obtener_token():
     payload = {'grant_type': 'client_credentials', 'scope': 'scope_1',
                'client_id': CLIENT_ID, 'client_secret': CLIENT_SECRET}
@@ -106,7 +105,6 @@ def obtener_token():
     except:
         return None
 
-
 def consultar_datos(token):
     headers = {'Authorization': f'Bearer {token}',
                'X-IBM-Client-Id': CLIENT_ID, 'Accept': 'application/json'}
@@ -115,7 +113,6 @@ def consultar_datos(token):
         return response.json() if response.status_code == 200 else None
     except:
         return None
-
 
 def extraer_dias_certificado(nombre_tecnico):
     if "30Days" in nombre_tecnico or "x0033_0Days" in nombre_tecnico:
@@ -129,7 +126,6 @@ def extraer_dias_certificado(nombre_tecnico):
     if "360Days" in nombre_tecnico or "x0033_60Days" in nombre_tecnico:
         return 360
     return 30  # Default
-
 
 # --- 5. INTERFAZ: BARRA LATERAL ---
 if 'datos_bancarios' not in st.session_state:
