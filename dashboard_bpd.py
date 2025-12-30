@@ -2,32 +2,72 @@ import streamlit as st
 import requests
 import pandas as pd
 import os
-import re  # Para buscar números en los nombres de los certificados
+import re
 from dotenv import load_dotenv
 
-# --- 1. CONFIGURACIÓN ---
+# --- 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS (RESPONSIVE) ---
 st.set_page_config(page_title="App BPD", page_icon="🏦", layout="wide")
 
-# Ocultar menú de Streamlit y footer
-hide_st_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            header {visibility: hidden;}
-            </style>
-            """
-st.markdown(hide_st_style, unsafe_allow_html=True)
+# --- HACK CSS PARA RESPONSIVE DESIGN (VERSIÓN CORREGIDA DARK MODE) ---
+st.markdown("""
+    <style>
+        /* Ajustes para móviles (pantallas pequeñas) */
+        @media (max-width: 600px) {
+            
+            /* 1. Márgenes más ajustados para ganar espacio */
+            .block-container {
+                padding-top: 1rem !important;
+                padding-left: 0.5rem !important;
+                padding-right: 0.5rem !important;
+            }
+            
+            /* 2. Tarjetas de Métricas (CORREGIDO EL COLOR) */
+            [data-testid="stMetric"] {
+                /* Usamos transparencia (efecto vidrio) para que funcione en Dark y Light mode */
+                background-color: rgba(255, 255, 255, 0.05); 
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 15px;
+                border-radius: 10px;
+                margin-bottom: 10px; /* Espacio entre tarjetas apiladas */
+            }
+            
+            /* 3. Títulos más pequeños en celular */
+            h1 {
+                font-size: 1.8rem !important; /* Reduce el título principal */
+            }
+            h2, h3 {
+                font-size: 1.4rem !important; /* Reduce subtítulos */
+            }
+            
+            /* 4. Ajustar tamaño de textos pequeños */
+            p, .stMarkdown {
+                font-size: 0.9rem !important;
+            }
+        }
+        
+        /* Ocultar menú default y footer */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Botones bonitos */
+        div.stButton > button:first-child {
+            border-radius: 8px;
+            font-weight: bold;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
+# --- 2. CARGA DE CREDENCIALES ---
 load_dotenv()
 CLIENT_ID = os.getenv("BPD_CLIENT_ID")
 CLIENT_SECRET = os.getenv("BPD_CLIENT_SECRET")
 
 if not CLIENT_ID or not CLIENT_SECRET:
-    st.error("⚠️ Error: No se encontraron las credenciales en el archivo .env")
+    st.error(
+        "⚠️ Error de Seguridad: No se encontraron las credenciales en el archivo .env")
     st.stop()
 
-# --- 2. CEREBRO DE LA APLICACIÓN (CONFIGURACIÓN DE REGLAS) ---
-# Aquí definimos las reglas estrictas de tiempo para cada préstamo
+# --- 3. REGLAS DE NEGOCIO (Conf. Préstamos) ---
 REGLAS_PRESTAMOS = {
     "Personal_Personal": {
         "nombre": "Préstamo Personal",
@@ -53,7 +93,7 @@ REGLAS_PRESTAMOS = {
 TOKEN_URL = "https://api.us-east-a.apiconnect.ibmappdomain.cloud/apiportalpopular/bpdsandbox/bpd/Authentication/oauth2/token"
 API_URL = "https://api.us-east-a.apiconnect.ibmappdomain.cloud/apiportalpopular/bpdsandbox/consultatasasinteres/consultaTasasInteres"
 
-# --- 3. FUNCIONES DE CONEXIÓN ---
+# --- 4. FUNCIONES AUXILIARES ---
 
 
 def obtener_token():
@@ -75,11 +115,8 @@ def consultar_datos(token):
     except:
         return None
 
-# Función para extraer días del nombre feo del certificado (ej: "OData__x0033_0DaysTermDOP" -> 30)
-
 
 def extraer_dias_certificado(nombre_tecnico):
-    # Buscamos patrones como "30Days", "60Days", etc.
     if "30Days" in nombre_tecnico or "x0033_0Days" in nombre_tecnico:
         return 30
     if "60Days" in nombre_tecnico or "x0036_0Days" in nombre_tecnico:
@@ -90,24 +127,18 @@ def extraer_dias_certificado(nombre_tecnico):
         return 180
     if "360Days" in nombre_tecnico or "x0033_60Days" in nombre_tecnico:
         return 360
-    return 30  # Default por si acaso
-
-# --- 4. INTERFAZ PRINCIPAL ---
+    return 30  # Default
 
 
+# --- 5. INTERFAZ: BARRA LATERAL ---
 if 'datos_bancarios' not in st.session_state:
     st.session_state.datos_bancarios = None
 
 with st.sidebar:
-    # Truco para centrar la imagen
-    col_izq, col_centro, col_der = st.columns([1, 2, 1])
-    with col_centro:
-        # Asegúrate de que tu imagen sea .png con fondo transparente si es posible
-        st.image("assets/image2.png", use_container_width=True)
+    # Logo responsivo
+    st.image("assets/image2.png", use_container_width=True)
+    st.write("")
 
-    st.write("")  # Espacio en blanco para que respire
-
-    # MENÚ NATIVO (Más limpio y rápido)
     opcion_menu = st.radio(
         "Navegación",
         ["Dashboard", "Préstamos", "Inversiones"],
@@ -117,7 +148,8 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("🔄 Actualizar Tasas", type="primary"):  # Botón nativo
+    # Botón full width para fácil acceso en móvil
+    if st.button("🔄 Actualizar Tasas", type="primary", use_container_width=True):
         with st.spinner('Conectando...'):
             token = obtener_token()
             if token:
@@ -126,32 +158,60 @@ with st.sidebar:
                     st.session_state.datos_bancarios = data
                     st.toast("Datos actualizados", icon='✅')
 
-# --- LÓGICA DE PANTALLAS ---
+# --- 6. INTERFAZ: PANTALLAS PRINCIPALES ---
 
 if not st.session_state.datos_bancarios:
-    st.info(
-        "👈 Presiona 'Actualizar Tasas' en el menú lateral para conectar con el banco.")
+    # ---------------------------------------------------------
+    # CASO 1: NO HAY DATOS (Mostrar Botón de Conectar)
+    # ---------------------------------------------------------
+    col_izq, col_centro, col_der = st.columns([1, 6, 1])
+
+    with col_centro:
+        st.write("")
+        st.write("")
+
+        st.markdown("### 👋 ¡Bienvenido al Monitor BPD!")
+        st.markdown("""
+        Esta aplicación se conecta al **Sandbox del Banco Popular** para traerte:
+        * 📉 Tasas de préstamos actualizadas.
+        * 💰 Simulador de cuotas.
+        * 📈 Calculadora de inversiones.
+        """)
+
+        st.write("")
+
+        if st.button("🚀 Conectar y Ver Tasas", type="primary", use_container_width=True):
+            with st.spinner('Conectando con el servidor seguro...'):
+                token = obtener_token()
+                if token:
+                    data = consultar_datos(token)
+                    if data:
+                        st.session_state.datos_bancarios = data
+                        st.toast("¡Conexión exitosa!", icon='🎉')
+                        st.rerun()
 
 else:
+    # ---------------------------------------------------------
+    # CASO 2: SÍ HAY DATOS (Procesar y Mostrar App)
+    # ---------------------------------------------------------
     data = st.session_state.datos_bancarios
+
+    # --- AQUÍ ES DONDE OCURRÍA EL ERROR (Faltaba este bloque) ---
     try:
         tasas_prestamos = data['tasasint'].get('tasaprestamos', {})
-        # Lógica para encontrar certificados donde sea que estén
         tasas_certificados = data['tasasint'].get('tasacertificadosObject', {})
         if not tasas_certificados:
             tasas_certificados = data['tasasint'].get('tasacertificados', {})
-    except:
+    except Exception as e:
+        st.error(f"Error procesando datos: {e}")
         st.stop()
 
-    # ---------------------------------------------------------
-    # PANTALLA 1: DASHBOARD
-    # ---------------------------------------------------------
+    # --- PANTALLA 1: DASHBOARD ---
     if opcion_menu == "Dashboard":
         st.title("Resumen de Tasas de Mercado")
 
         st.subheader("🏦 Préstamos Principales")
         c1, c2, c3 = st.columns(3)
-        # Solo mostramos los 3 que te interesan
         c1.metric(
             "Personal", f"{tasas_prestamos.get('Personal_Personal', 'N/A')}%")
         c2.metric("Hipotecario",
@@ -160,7 +220,6 @@ else:
             "Vehículo", f"{tasas_prestamos.get('LoansIndicativePCoRate', 'N/A')}%")
 
         st.subheader("📜 Certificados de Inversión")
-        # Mostramos los primeros 3 certificados que encontremos
         keys_cert = list(tasas_certificados.keys())
         cc1, cc2, cc3 = st.columns(3)
         for i, col in enumerate([cc1, cc2, cc3]):
@@ -170,13 +229,9 @@ else:
                 col.metric(f"Certificado {dias} Días",
                            f"{tasas_certificados[nombre_tec]}%")
 
-    # ---------------------------------------------------------
-    # PANTALLA 2: PRÉSTAMOS (Lógica estricta)
-    # ---------------------------------------------------------
-    # ---------------------------------------------------------
-    # PANTALLA 2: PRÉSTAMOS (CON GRÁFICOS Y TABLA)
-    # ---------------------------------------------------------
+    # --- PANTALLA 2: PRÉSTAMOS ---
     elif opcion_menu == "Préstamos":
+        # ... (El resto de tu código de préstamos sigue igual aquí, asegúrate de mantener la indentación dentro del else)
         st.title("Simulador de Préstamos")
 
         col1, col2 = st.columns([1, 2])
@@ -184,13 +239,11 @@ else:
         with col1:
             opciones_validas = [
                 k for k in tasas_prestamos.keys() if k in REGLAS_PRESTAMOS]
-
             codigo_seleccionado = st.selectbox(
                 "Tipo de Producto",
                 opciones_validas,
                 format_func=lambda x: REGLAS_PRESTAMOS[x]["nombre"]
             )
-
             regla_actual = REGLAS_PRESTAMOS[codigo_seleccionado]
             tasa_real = tasas_prestamos[codigo_seleccionado]
 
@@ -207,31 +260,26 @@ else:
                 value=regla_actual["default"]
             )
 
-            st.info(f"""
-            **Producto:** {regla_actual['nombre']} | **Tasa:** {tasa_real}% | **Plazo:** {plazo} meses
-            """)
+            st.info(
+                f"**Producto:** {regla_actual['nombre']} | **Tasa:** {tasa_real}% | **Plazo:** {plazo} meses")
 
-            # --- CÁLCULO DE LA TABLA DE AMORTIZACIÓN ---
-            if st.button("Calcular Plan de Pagos", type="primary"):
+            if st.button("Calcular Plan de Pagos", type="primary", use_container_width=True):
                 i = tasa_real / 100 / 12
                 n = plazo
 
                 if i > 0:
-                    # 1. Calculamos la cuota fija
                     cuota = (monto * i) / (1 - (1 + i)**(-n))
-
                     st.success(f"### Cuota Mensual: RD$ {cuota:,.2f}")
 
-                    # 2. Generamos la tabla mes a mes (Ciclo For)
+                    # Generar Tabla
                     saldo = monto
                     datos_amortizacion = []
-
                     for mes in range(1, n + 1):
                         interes_mes = saldo * i
                         capital_mes = cuota - interes_mes
                         saldo -= capital_mes
                         if saldo < 0:
-                            saldo = 0  # Ajuste por decimales
+                            saldo = 0
 
                         datos_amortizacion.append({
                             "Mes": mes,
@@ -241,37 +289,30 @@ else:
                             "Saldo Restante": round(saldo, 2)
                         })
 
-                    # Convertimos a DataFrame (Tabla inteligente)
                     df_amort = pd.DataFrame(datos_amortizacion)
-
                     st.divider()
 
-                    # 3. VISUALIZACIÓN GRÁFICA
                     st.subheader("📉 Comportamiento de tu Deuda")
-                    # Gráfico simple: Línea de Saldo
-                    st.line_chart(df_amort, x="Mes",
-                                  y="Saldo Restante", color="#0054a6")
+                    st.line_chart(df_amort, x="Mes", y="Saldo Restante",
+                                  color="#0054a6", use_container_width=True)
 
-                    # 4. TABLA DETALLADA DESPLEGABLE
                     with st.expander("Ver Tabla de Amortización Completa"):
                         st.dataframe(df_amort, use_container_width=True)
 
-                        # 5. BOTÓN DE DESCARGA (CSV)
                         csv = df_amort.to_csv(index=False).encode('utf-8')
                         st.download_button(
-                            label="📥 Descargar Tabla en Excel (CSV)",
+                            label="📥 Descargar Tabla (CSV)",
                             data=csv,
                             file_name=f"plan_pagos_{regla_actual['nombre']}.csv",
                             mime='text/csv',
+                            use_container_width=True
                         )
-
                 else:
                     st.error("Error en tasa")
 
-    # ---------------------------------------------------------
-    # PANTALLA 3: INVERSIONES (Plazos Fijos)
-    # ---------------------------------------------------------
+    # --- PANTALLA 3: INVERSIONES ---
     elif opcion_menu == "Inversiones":
+        # ... (Tu código de inversiones sigue igual, indentado dentro del else)
         st.title("Simulador de Inversiones")
 
         if not tasas_certificados:
@@ -280,15 +321,12 @@ else:
             col1, col2 = st.columns(2)
 
             with col1:
-                # El usuario elige el certificado
                 cert_code = st.selectbox(
                     "Selecciona el Certificado",
                     list(tasas_certificados.keys()),
                     format_func=lambda x: f"Certificado {extraer_dias_certificado(x)} Días"
                 )
-
                 tasa_inv = tasas_certificados[cert_code]
-                # Detectamos si es 30, 60, 90...
                 dias_reales = extraer_dias_certificado(cert_code)
 
                 capital = st.number_input(
@@ -297,16 +335,12 @@ else:
 
             with col2:
                 st.subheader("Detalles del Plazo")
-                # LÓGICA DE PLAZO FIJO: El usuario NO puede editar el tiempo
-                # Mostramos el tiempo como dato informativo, no como input
                 st.metric("Plazo Fijo (Inmodificable)", f"{dias_reales} Días")
                 st.metric("Tasa de Retorno", f"{tasa_inv}%")
 
-                if st.button("Calcular Retorno", type="primary"):
-                    # Fórmula Interés Simple para días exactos: (Capital * Tasa * Días) / 36000
-                    # (36000 es 360 días * 100 del porcentaje)
+                if st.button("Calcular Retorno", type="primary", use_container_width=True):
                     ganancia_bruta = (capital * tasa_inv * dias_reales) / 36000
-                    impuesto = ganancia_bruta * 0.10  # 10% de ley
+                    impuesto = ganancia_bruta * 0.10
                     ganancia_neta = ganancia_bruta - impuesto
 
                     st.divider()
