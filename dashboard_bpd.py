@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import re
 from dotenv import load_dotenv
+import streamlit.components.v1 as components
 
 # --- 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS (RESPONSIVE) ---
 st.set_page_config(page_title="App BPD", page_icon="🏦", layout="wide")
@@ -134,17 +135,42 @@ def extraer_dias_certificado(nombre_tecnico):
 if 'datos_bancarios' not in st.session_state:
     st.session_state.datos_bancarios = None
 
+# Inicializamos la variable
+if 'menu_previo' not in st.session_state:
+    st.session_state.menu_previo = "Dashboard"
+
 with st.sidebar:
     # Logo responsivo
     st.image("assets/image2.png", use_container_width=True)
     st.write("")
 
+    # El menú
     opcion_menu = st.radio(
         "Navegación",
         ["Dashboard", "Préstamos", "Inversiones"],
         captions=["Vista general", "Simulador de cuotas",
                   "Simulador de certificados"]
     )
+
+    # --- AUTO-CERRAR SIDEBAR EN MÓVIL ---
+    # Verificamos si la opción cambió respecto a la última vez
+    if st.session_state.menu_previo != opcion_menu:
+        st.session_state.menu_previo = opcion_menu  # Actualizamos memoria
+
+        # Inyectamos JavaScript para buscar el botón de cerrar (la X) y darle clic
+        components.html("""
+            <script>
+                // Buscamos el contenedor del sidebar
+                var sidebar = window.parent.document.querySelector('section[data-testid="stSidebar"]');
+                if (sidebar) {
+                    // Buscamos el botón de cerrar (generalmente es el primer botón dentro del sidebar)
+                    var closeBtn = sidebar.querySelector('button');
+                    if (closeBtn) {
+                        closeBtn.click(); // ¡Simulamos el clic!
+                    }
+                }
+            </script>
+        """, height=0, width=0)
 
     st.divider()
 
@@ -196,7 +222,6 @@ else:
     # ---------------------------------------------------------
     data = st.session_state.datos_bancarios
 
-    # --- AQUÍ ES DONDE OCURRÍA EL ERROR (Faltaba este bloque) ---
     try:
         tasas_prestamos = data['tasasint'].get('tasaprestamos', {})
         tasas_certificados = data['tasasint'].get('tasacertificadosObject', {})
@@ -231,7 +256,6 @@ else:
 
     # --- PANTALLA 2: PRÉSTAMOS ---
     elif opcion_menu == "Préstamos":
-        # ... (El resto de tu código de préstamos sigue igual aquí, asegúrate de mantener la indentación dentro del else)
         st.title("Simulador de Préstamos")
 
         col1, col2 = st.columns([1, 2])
@@ -312,7 +336,6 @@ else:
 
     # --- PANTALLA 3: INVERSIONES ---
     elif opcion_menu == "Inversiones":
-        # ... (Tu código de inversiones sigue igual, indentado dentro del else)
         st.title("Simulador de Inversiones")
 
         if not tasas_certificados:
